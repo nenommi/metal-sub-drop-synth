@@ -9,10 +9,20 @@ jobs:
   windows-x64:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
+      # Configure downloads JUCE and clap-juce-extensions; retry so a runner network blip doesn't fail the build.
       - name: Configure
-        run: cmake -B build -A x64
+        shell: pwsh
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            cmake -B build -A x64
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "Configure attempt $attempt failed, retrying in 30 s..."
+            Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 30
+          }
+          exit 1
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -27,7 +37,7 @@ jobs:
           Copy-Item "$src/Standalone/Metal Sub Drop.exe" dist/
           Get-ChildItem -Recurse dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: MetalSubDrop-Windows-x64
           path: dist
